@@ -5,24 +5,26 @@ import os
 from dotenv import load_dotenv
 
 
-date1, date2 = '2025-04-28', '2025-05-22'
-arrival_iata1, arrival_iata2 = 'LED', 'AER'
+date1, date2 = "2025-04-28", "2025-05-22"
+arrival_iata1, arrival_iata2 = "LED", "AER"
 
 
 # Переменная для хранения предыдущих данных
 previous_data = dict.fromkeys([date1 + arrival_iata1, date2 + arrival_iata2], None)
 
 load_dotenv()
-TELEGRAM_BOT_TOKEN = os.getenv('BOT_TOKEN')
-TELEGRAM_CHAT_ID = os.getenv('CHAT_ID')
+TELEGRAM_BOT_TOKEN = os.getenv("BOT_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("CHAT_ID")
+
 
 # Функция для отправки сообщения в Telegram
 async def send_telegram_message(message):
     bot = Bot(token=TELEGRAM_BOT_TOKEN)
     await bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
 
+
 def fetch_data(date, arrival_iata):
-    '''
+    """
     В этой части происходит что-то недостижимое моего разума,\n
     отправляются какие-то запросы, на мой взгляд состоящие из иероглифов.\n
     Но, конечно, какие-то вещи я понимаю\n
@@ -46,7 +48,7 @@ def fetch_data(date, arrival_iata):
     далее в запросе указываются коды аэропортов\n
     отправления "departure": {"iata": "NUX"} и\n
     прибытия "arrival": {"iata": "LED"}\n
-    '''
+    """
 
     # URL API
     url = "https://yc.websky.aero/graphql/query/nemo"
@@ -55,7 +57,7 @@ def fetch_data(date, arrival_iata):
     headers = {
         "accept": "*/*",
         "accept-language": "ru",
-        "authorization": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwczpcL1wveWMud2Vic2t5LmFlcm9cL2dyYXBocWxcL3F1ZXJ5XC9uZW1vIiwiaWF0IjoxNzQxNzYwNzg0LCJleHAiOjE3NDk1MzY3ODQsIm5iZiI6MTc0MTc2MDc4NCwianRpIjoieGJTN2c3ZXZTS3dGTVZyMyIsInN1YiI6NzcyNTIyOCwicHJ2IjoiZGY4Zjk4NGEwNGUwYjc3NzcwYjBiMzZmNjQwOWFhZTVjMzJlODk1YSIsIm54MSI6IjdXT0JwMWtCSktSb2o4ODlkOVBSVDdnekFERWFzWGNSb1hDODRhZ0RYTVlWSmg4WXg0VWZwZ3RJYXdxdnRtZHl2RjBINm5mZ1VMRmJjd0pXZWNZSXUyVEpBWnk1d0ZZcjZaQTFScURvdGpEV05jdUVuQ2xvTFBOTnpDOWZnTU1hIiwibngzIjpbXSwibng0IjpmYWxzZX0.sOk4vVxZ9DByVuyen6uEtd1m-8SjkBGhOQR1GTrRxUI",
+        "authorization": os.getenv("WEB_TOKEN"),
         "content-type": "application/json",
         "origin": "https://yamalaero.ru",
         "referer": "https://yamalaero.ru/booking/",
@@ -77,16 +79,16 @@ def fetch_data(date, arrival_iata):
                     {"passengerType": "ADT", "extendedPassengerType": None, "count": 1},
                     {"passengerType": "CLD", "extendedPassengerType": None, "count": 0},
                     {"passengerType": "INF", "extendedPassengerType": None, "count": 0},
-                    {"passengerType": "INS", "extendedPassengerType": None, "count": 0}
+                    {"passengerType": "INS", "extendedPassengerType": None, "count": 0},
                 ],
                 "daysCount": 5,
                 "segments": [
                     {
                         "date": date,
                         "departure": {"iata": "NUX"},
-                        "arrival": {"iata": arrival_iata}
+                        "arrival": {"iata": arrival_iata},
                     }
-                ]
+                ],
             }
         },
         "query": """
@@ -105,15 +107,16 @@ def fetch_data(date, arrival_iata):
                     __typename
                 }
             }
-        """
+        """,
     }
 
     # Отправка POST-запроса
     response = requests.post(url, headers=headers, cookies=cookies, json=data)
     return response
 
+
 async def fetch_and_send_data(date, arrival_iata):
-    '''
+    """
     Здесь происходит еще одна магия,\n
     полученная информаци обрабатывается\n
     таким образом, как мне нужно\n
@@ -130,7 +133,7 @@ async def fetch_and_send_data(date, arrival_iata):
     если в эту дату полет не выполняется или билетов нет,\n
     то в ключе ['price'] будет None\n
     в противном случае там будет цена на билет\n
-    '''
+    """
     global previous_data
 
     # Уникальный ключ для каждого запроса
@@ -143,7 +146,9 @@ async def fetch_and_send_data(date, arrival_iata):
     if response.status_code == 200:
         try:
             # Парсим JSON-ответ
-            response_data = response.json()['data']['FlightsMinPricesInPeriod']['datesWithLowestPrices']
+            response_data = response.json()["data"]["FlightsMinPricesInPeriod"][
+                "datesWithLowestPrices"
+            ]
 
             # Сравниваем полученные данные с предыдущими
             if response_data != previous_data[key]:
@@ -151,8 +156,10 @@ async def fetch_and_send_data(date, arrival_iata):
                 if previous_data[key] is not None:
                     for i, j in zip(previous_data[key], response_data):
                         if i != j:
-                            if j['price'] is not None:
-                                message += f"Дата: {j['date']}, Цена: {j['price']['amount']}\n"
+                            if j["price"] is not None:
+                                message += (
+                                    f"Дата: {j['date']}, Цена: {j['price']['amount']}\n"
+                                )
                             else:
                                 message += f"Дата: {j['date']}, Билетов нет"
 
@@ -161,11 +168,13 @@ async def fetch_and_send_data(date, arrival_iata):
                     message = f"Начало работы программы:)\nПо направлению в {arrival_iata} инфа такая:\n"
 
                     for i in response_data:
-                        if i['price'] is not None:
-                            message += f"Дата: {i['date']}, Цена: {i['price']['amount']}\n"
+                        if i["price"] is not None:
+                            message += (
+                                f"Дата: {i['date']}, Цена: {i['price']['amount']}\n"
+                            )
                         else:
                             message += f"Дата: {i['date']}, Билетов нет\n"
-                    message += 'Я сообщу, если что-то изменится'
+                    message += "Я сообщу, если что-то изменится"
 
                 # Обновляем предыдущие данные
                 previous_data[key] = response_data
@@ -184,6 +193,7 @@ async def fetch_and_send_data(date, arrival_iata):
     else:
         print(f"Ошибка: {response.status_code}")
 
+
 # Основной цикл
 async def main():
     try:
@@ -191,7 +201,7 @@ async def main():
             # Запуск двух запросов параллельно с разными параметрами
             await asyncio.gather(
                 fetch_and_send_data(date1, arrival_iata1),  # Первый запрос
-                fetch_and_send_data(date2, arrival_iata2)   # Второй запрос
+                fetch_and_send_data(date2, arrival_iata2),  # Второй запрос
             )
 
             await asyncio.sleep(60)  # Задержка в 1 минута (60 секунд)
@@ -200,6 +210,7 @@ async def main():
         await send_telegram_message("На данный момент программа завершена")
         print("Программа завершена пользователем.")
 
+
 # Запуск асинхронного кода
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
@@ -207,7 +218,9 @@ if __name__ == "__main__":
         loop.run_until_complete(main())
     except KeyboardInterrupt:
         # Обработка KeyboardInterrupt на уровне event loop
-        loop.run_until_complete(send_telegram_message("На данный момент программа завершена"))
+        loop.run_until_complete(
+            send_telegram_message("На данный момент программа завершена")
+        )
         print("Программа завершена пользователем.")
     finally:
         loop.close()
